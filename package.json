@@ -1,0 +1,19 @@
+{
+  "name": "advanced-daily-tracker",
+  "version": "1.0.0",
+  "description": "Turn snippets and tables into interactive daily trackers in Obsidian.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "esbuild main.ts --bundle --outfile=main.js --format=cjs --target=es2018 --sourcemap=inline --external:obsidian --external:electron --external:@codemirror/* --external:@lezer/* --watch",
+    "build": "tsc -noEmit -skipLibCheck && esbuild main.ts --bundle --outfile=main.js --format=cjs --target=es2018 --minify --external:obsidian --external:electron --external:@codemirror/* --external:@lezer/*"
+  },
+  "author": "kgniewek",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.21.5",
+    "obsidian": "latest",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.5"
+  }
+}
