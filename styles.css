@@ -31,8 +31,8 @@
 	padding-bottom: 20px;
 }
 
-.adt-setting-off {
-	display: none !important;
+.adt-settings-card .setting-item-control .adt-setting-off {
+	display: none;
 }
 
 .adt-settings-divider {
@@ -62,8 +62,7 @@
 	--adt-wide-size: calc(var(--adt-cell-size, 22px) * 2.3);
 	--adt-month-gap: calc((var(--adt-cell-size, 22px) + var(--adt-vgap, 8px)) * var(--adt-gap-scale, 1));
 	display: inline-grid;
-	column-gap: var(--adt-hgap, 16px);
-	row-gap: var(--adt-vgap, 8px);
+	gap: var(--adt-vgap, 8px) var(--adt-hgap, 16px);
 	align-items: center;
 	margin: var(--adt-margin-top, 50px) 0 var(--adt-margin-bottom, 50px);
 }
@@ -312,9 +311,9 @@ body.adt-today-accent .adt-tracker-date.is-today {
 	font-variant-numeric: tabular-nums;
 }
 
-.adt-tracker-cell.is-number:not(:has(input)),
-.adt-tracker-cell.is-wide:not(:has(input)),
-.adt-tracker-cell.is-compact:not(:has(input)) {
+.adt-tracker-cell.is-number:not(.is-editing),
+.adt-tracker-cell.is-wide:not(.is-editing),
+.adt-tracker-cell.is-compact:not(.is-editing) {
 	padding-bottom: 0.14em;
 }
 
@@ -353,8 +352,7 @@ body.adt-today-accent .adt-tracker-date.is-today {
 }
 
 .adt-tracker.is-horizontal {
-	column-gap: var(--adt-vgap, 8px);
-	row-gap: var(--adt-hgap, 16px);
+	gap: var(--adt-hgap, 16px) var(--adt-vgap, 8px);
 }
 
 .adt-tracker.is-horizontal .adt-tracker-corner {
@@ -626,6 +624,7 @@ body.adt-sticky-vertical .adt-tracker:not(.is-horizontal) .adt-tracker-corner::a
 
 .adt-heat-grid {
 	display: inline-grid;
+	grid-template-rows: auto repeat(7, var(--adt-heat-size));
 	gap: 3px;
 	align-items: center;
 }
@@ -639,10 +638,12 @@ body.adt-sticky-vertical .adt-tracker:not(.is-horizontal) .adt-tracker-corner::a
 }
 
 .adt-heat-month {
+	grid-row: 1;
 	padding-bottom: var(--size-4-1);
 }
 
 .adt-heat-weekday {
+	grid-column: 1;
 	padding-right: var(--size-4-2);
 }
 

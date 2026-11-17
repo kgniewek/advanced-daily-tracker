@@ -1,14 +1,14 @@
 {
   "name": "advanced-daily-tracker",
-  "version": "1.0.0",
-  "description": "Turn snippets and tables into interactive daily trackers in Obsidian.",
+  "version": "1.0.1",
+  "description": "A daily habit tracker for Obsidian with graphs, pie charts and heatmaps.",
   "main": "main.js",
   "scripts": {
     "dev": "esbuild main.ts --bundle --outfile=main.js --format=cjs --target=es2018 --sourcemap=inline --external:obsidian --external:electron --external:@codemirror/* --external:@lezer/* --watch",
     "build": "tsc -noEmit -skipLibCheck && esbuild main.ts --bundle --outfile=main.js --format=cjs --target=es2018 --minify --external:obsidian --external:electron --external:@codemirror/* --external:@lezer/*"
   },
   "author": "kgniewek",
-  "license": "MIT",
+  "license": "PolyForm-Strict-1.0.0",
   "devDependencies": {
     "@types/node": "^20.11.0",
     "esbuild": "^0.21.5",

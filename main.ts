@@ -507,7 +507,7 @@ function pieSlices(col: PieColumn): PieSlice[] {
 		const values: number[] = [];
 		let missing = 0;
 		cells.forEach((c) => {
-			const v = graphValue(kind as GraphKind, c);
+			const v = graphValue(kind, c);
 			if (v === null) missing++;
 			else values.push(v);
 		});
@@ -585,15 +585,13 @@ class ConfirmModal extends Modal {
 		this.contentEl.createEl("p", { text: this.message });
 		new Setting(this.contentEl)
 			.addButton((b) => b.setButtonText("Cancel").onClick(() => this.close()))
-			.addButton((b) =>
-				b
-					.setButtonText(this.action)
-					.setWarning()
-					.onClick(() => {
-						this.close();
-						this.onConfirm();
-					}),
-			);
+			.addButton((b) => {
+				b.setButtonText(this.action).onClick(() => {
+					this.close();
+					this.onConfirm();
+				});
+				b.buttonEl.addClass("mod-warning");
+			});
 	}
 
 	onClose(): void {
@@ -689,7 +687,7 @@ export default class DailyTrackerPlugin extends Plugin {
 	async loadSettings(): Promise<void> {
 		const data = (await this.loadData()) as Partial<DailyTrackerSettings> | null;
 		this.settings = { ...DEFAULT_SETTINGS, ...(data ?? {}) };
-		const legacy = data as { boldWeekends?: boolean; weekendStyle?: HighlightStyle; showYear?: boolean } | null;
+		const legacy: { boldWeekends?: boolean; weekendStyle?: HighlightStyle; showYear?: boolean } | null = data;
 		if (legacy?.boldWeekends === false && legacy.weekendStyle === undefined) this.settings.weekendStyle = "none";
 		if (legacy?.showYear === false && data?.dateParts === undefined) this.settings.dateParts = "month-day";
 		if ((this.settings.monthHeadings as string) === "spacer") this.settings.monthHeadings = "gap";
@@ -1040,7 +1038,6 @@ export default class DailyTrackerPlugin extends Plugin {
 		const scroll = box.createDiv({ cls: "adt-heat-scroll" });
 		const grid = scroll.createDiv({ cls: "adt-heat-grid" });
 		grid.style.gridTemplateColumns = `auto repeat(${weeks}, var(--adt-heat-size))`;
-		grid.style.gridTemplateRows = "auto repeat(7, var(--adt-heat-size))";
 
 		const labels: { week: number; month: Date }[] = [{ week: 0, month: first }];
 		for (let w = 1; w < weeks; w++) {
@@ -1054,13 +1051,11 @@ export default class DailyTrackerPlugin extends Plugin {
 		labels.forEach(({ week, month }) => {
 			const el = grid.createDiv({ cls: "adt-heat-month", text: month.toLocaleString(undefined, { month: "short" }) });
 			el.style.gridColumn = String(week + 2);
-			el.style.gridRow = "1";
 		});
 
 		["Mon", "", "Wed", "", "Fri", "", ""].forEach((text, r) => {
 			if (!text) return;
 			const el = grid.createDiv({ cls: "adt-heat-weekday", text });
-			el.style.gridColumn = "1";
 			el.style.gridRow = String(r + 2);
 		});
 
@@ -1357,6 +1352,7 @@ export default class DailyTrackerPlugin extends Plugin {
 			const edit = (): void => {
 				if (editing) return;
 				editing = true;
+				cell.addClass("is-editing");
 				cell.empty();
 				const input = cell.createEl("input", { cls: "adt-tracker-number", type: "text" });
 				input.inputMode = kind === "time" ? "numeric" : "text";
@@ -1369,6 +1365,7 @@ export default class DailyTrackerPlugin extends Plugin {
 					if (done) return;
 					done = true;
 					editing = false;
+					cell.removeClass("is-editing");
 					if (!apply) {
 						paint();
 						return;
@@ -1477,6 +1474,7 @@ export default class DailyTrackerPlugin extends Plugin {
 			const edit = (): void => {
 				if (editing) return;
 				editing = true;
+				cell.addClass("is-editing");
 				cell.empty();
 				const input = cell.createEl("input", { cls: "adt-tracker-number", type: "text" });
 				input.inputMode = "numeric";
@@ -1488,6 +1486,7 @@ export default class DailyTrackerPlugin extends Plugin {
 					if (done) return;
 					done = true;
 					editing = false;
+					cell.removeClass("is-editing");
 					const typed = input.value.replace(/\D/g, "");
 					const next = typed ? Math.min(Number(typed), max) : 0;
 					if (apply && next !== state) void save(next);
@@ -1996,9 +1995,9 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 				s
 					.setLimits(min, max, step)
 					.setValue(settings[key])
-					.onChange(async (value) => {
+					.onChange((value) => {
 						settings[key] = value;
-						await commit();
+						void commit();
 					}),
 			);
 		};
@@ -2006,23 +2005,23 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 		const main = group("Advanced Daily Tracker");
 
 		new Setting(main).setName("Turn snippets into interactive trackers").addToggle((toggle) =>
-			toggle.setValue(settings.snippetTrackers).onChange(async (value) => {
+			toggle.setValue(settings.snippetTrackers).onChange((value) => {
 				settings.snippetTrackers = value;
-				await commit();
+				void commit();
 			}),
 		);
 		divider(main);
 		new Setting(main).setName("Turn tables into interactive trackers").addToggle((toggle) =>
-			toggle.setValue(settings.tableTrackers).onChange(async (value) => {
+			toggle.setValue(settings.tableTrackers).onChange((value) => {
 				settings.tableTrackers = value;
-				await commit();
+				void commit();
 			}),
 		);
 		divider(main);
 		new Setting(main).setName("Show graphs and charts").addToggle((toggle) =>
-			toggle.setValue(settings.chartSnippets).onChange(async (value) => {
+			toggle.setValue(settings.chartSnippets).onChange((value) => {
 				settings.chartSnippets = value;
-				await commit();
+				void commit();
 			}),
 		);
 
@@ -2032,9 +2031,9 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 			.setName("All trackers fully editable")
 			.setDesc("Off: pick locked, limited or unlocked for each tracker by right-clicking it.")
 			.addToggle((toggle) =>
-				toggle.setValue(settings.allUnlocked).onChange(async (value) => {
+				toggle.setValue(settings.allUnlocked).onChange((value) => {
 					settings.allUnlocked = value;
-					await commit();
+					void commit();
 				}),
 			);
 
@@ -2045,9 +2044,9 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 				.addOption("two", "Today and yesterday")
 				.addOption("week", "Last 7 days")
 				.setValue(settings.limitedRange)
-				.onChange(async (value) => {
+				.onChange((value) => {
 					settings.limitedRange = value as LimitedRange;
-					await commit();
+					void commit();
 				}),
 		);
 
@@ -2055,9 +2054,9 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 		new Setting(behaviour)
 			.setName("Automatically add missing days to limited and unlocked trackers")
 			.addToggle((toggle) =>
-				toggle.setValue(settings.autoAddDays).onChange(async (value) => {
+				toggle.setValue(settings.autoAddDays).onChange((value) => {
 					settings.autoAddDays = value;
-					await commit();
+					void commit();
 				}),
 			);
 
@@ -2070,9 +2069,9 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 					.addOption("vertical", "Vertical")
 					.addOption("horizontal", "Horizontal")
 					.setValue(settings.orientation)
-					.onChange(async (value) => {
+					.onChange((value) => {
 						settings.orientation = value as Orientation;
-						await commit();
+						void commit();
 					}),
 			);
 		divider(appearance);
@@ -2096,18 +2095,18 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 					.addOption("name", "Name")
 					.addOption("name-days", "Name and days")
 					.setValue(settings.graphHeader)
-					.onChange(async (value) => {
+					.onChange((value) => {
 						settings.graphHeader = value as GraphHeader;
-						await commit();
+						void commit();
 					}),
 			);
 		divider(appearance);
 		new Setting(appearance)
 			.setName("Sticky labels in vertical layout")
 			.addToggle((toggle) =>
-				toggle.setValue(settings.stickyLabelsVertical).onChange(async (value) => {
+				toggle.setValue(settings.stickyLabelsVertical).onChange((value) => {
 					settings.stickyLabelsVertical = value;
-					await commit();
+					void commit();
 				}),
 			);
 
@@ -2119,9 +2118,9 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 				.addOption("month-day", "Month and day")
 				.addOption("day", "Day only")
 				.setValue(settings.dateParts)
-				.onChange(async (value) => {
+				.onChange((value) => {
 					settings.dateParts = value as DateParts;
-					await commit();
+					void commit();
 				}),
 		);
 		divider(info);
@@ -2131,9 +2130,9 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 				.addOption("mdy", "Middle endian mm/dd/yyyy")
 				.addOption("ymd", "Big endian yyyy-mm-dd")
 				.setValue(settings.dateFormat)
-				.onChange(async (value) => {
+				.onChange((value) => {
 					settings.dateFormat = value as DateFormat;
-					await commit();
+					void commit();
 				}),
 		);
 		divider(info);
@@ -2144,16 +2143,16 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 				.addOption("-", "-")
 				.addOption(" ", "\u00A0")
 				.setValue(settings.dateSeparator)
-				.onChange(async (value) => {
+				.onChange((value) => {
 					settings.dateSeparator = value as DateSeparator;
-					await commit();
+					void commit();
 				}),
 		);
 		divider(info);
 		new Setting(info).setName("Roman numeral months").addToggle((toggle) =>
-			toggle.setValue(settings.romanMonths).onChange(async (value) => {
+			toggle.setValue(settings.romanMonths).onChange((value) => {
 				settings.romanMonths = value;
-				await commit();
+				void commit();
 			}),
 		);
 
@@ -2167,9 +2166,9 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 					.addOption("underline", "Underline")
 					.addOption("accent", "Accent color")
 					.setValue(settings[key])
-					.onChange(async (value) => {
+					.onChange((value) => {
 						settings[key] = value as HighlightStyle;
-						await commit();
+						void commit();
 					}),
 			);
 		};
@@ -2193,9 +2192,9 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 				slider
 					.setLimits(0, 100, 5)
 					.setValue(settings.gapSize)
-					.onChange(async (value) => {
+					.onChange((value) => {
 						settings.gapSize = value;
-						await commit();
+						void commit();
 					}),
 			),
 		);
@@ -2206,10 +2205,10 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 				.addOption("month", "Month")
 				.addOption("month-year", "Month, year")
 				.setValue(settings.monthHeadings)
-				.onChange(async (value) => {
+				.onChange((value) => {
 					settings.monthHeadings = value as MonthHeadings;
 					syncControls();
-					await commit();
+					void commit();
 				}),
 		);
 		const alignControls = addedControls(() =>
@@ -2219,9 +2218,9 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 					.addOption("left", "Left")
 					.addOption("center", "Center")
 					.setValue(settings.monthAlign)
-					.onChange(async (value) => {
+					.onChange((value) => {
 						settings.monthAlign = value as MonthAlign;
-						await commit();
+						void commit();
 					}),
 			),
 		);
