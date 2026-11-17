@@ -2027,6 +2027,18 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 
 		const behaviour = group("Behaviour");
 
+
+		new Setting(behaviour)
+			.setName("Automatically add missing days to limited and unlocked trackers")
+			.addToggle((toggle) =>
+				toggle.setValue(settings.autoAddDays).onChange((value) => {
+					settings.autoAddDays = value;
+					void commit();
+				}),
+			);
+		divider(behaviour);
+
+
 		new Setting(behaviour)
 			.setName("All trackers fully editable")
 			.setDesc("Off: pick locked, limited or unlocked for each tracker by right-clicking it.")
@@ -2050,15 +2062,7 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 				}),
 		);
 
-		divider(behaviour);
-		new Setting(behaviour)
-			.setName("Automatically add missing days to limited and unlocked trackers")
-			.addToggle((toggle) =>
-				toggle.setValue(settings.autoAddDays).onChange((value) => {
-					settings.autoAddDays = value;
-					void commit();
-				}),
-			);
+
 
 		const appearance = group("Appearance");
 
