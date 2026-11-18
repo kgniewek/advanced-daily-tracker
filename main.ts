@@ -127,31 +127,43 @@ const MAX_LEVELS = 10;
 
 const MAX_NUMBER = 99;
 
-type ColumnKind = "check" | "levels" | "number" | "time" | "duration";
+type ColumnKind = "check" | "levels" | "number" | "time" | "duration" | "text";
 
 const DEFAULT_LEVELS = 5;
 
+const DEFAULT_NEW_SHADES = 4;
+
 const MAX_DURATION = 99 * 60 + 59;
 
-const HEADER_SUFFIX = /\((\d+|#|time|dur)\)\s*$/i;
+const MAX_TEXT_WORDS = 20;
 
-const isTextKind = (k: ColumnKind): k is "time" | "duration" => k === "time" || k === "duration";
+const MAX_TEXT_CHARS = 300;
+
+const HEADER_SUFFIX = /\((\d+|#|time|dur|text)\)\s*$/i;
+
+type ValueKind = "time" | "duration" | "text";
+
+const isTextKind = (k: ColumnKind): k is ValueKind => k === "time" || k === "duration" || k === "text";
+
+const countWords = (raw: string): number => raw.trim().split(/\s+/).filter(Boolean).length;
 
 const COLUMN_TYPES: { kind: ColumnKind; label: string; icon: string; hint: string }[] = [
 	{ kind: "check", label: "Checkbox", icon: "check", hint: "Name" },
-	{ kind: "levels", label: "Shades", icon: "palette", hint: "Name (shades)" },
+	{ kind: "levels", label: "Shades", icon: "palette", hint: "Name(5) \u2013 digit = shades" },
 	{ kind: "number", label: "Number", icon: "hash", hint: "Name (number)" },
 	{ kind: "time", label: "Time of day", icon: "clock", hint: "Name (time)" },
 	{ kind: "duration", label: "Duration", icon: "timer", hint: "Name (duration)" },
+	{ kind: "text", label: "Text", icon: "type", hint: "Name (text)" },
 ];
 
 type SubmenuItem = MenuItem & { setSubmenu: () => Menu };
 const canSubmenu = (): boolean => typeof (MenuItem.prototype as unknown as { setSubmenu?: unknown }).setSubmenu === "function";
 
 function parseColumn(raw: string): { name: string; max: number; kind: ColumnKind } {
-	const m = /^(.*?)\s*\((\d+|#|time|dur)\)\s*$/i.exec(raw.trim());
+	const m = /^(.*?)\s*\((\d+|#|time|dur|text)\)\s*$/i.exec(raw.trim());
 	if (!m || !m[1]) return { name: raw, max: 1, kind: "check" };
 	const tag = m[2].toLowerCase();
+	if (tag === "text") return { name: m[1], max: 1, kind: "text" };
 	if (tag === "#") return { name: m[1], max: MAX_NUMBER, kind: "number" };
 	if (tag === "time") return { name: m[1], max: 1, kind: "time" };
 	if (tag === "dur") return { name: m[1], max: 1, kind: "duration" };
@@ -216,15 +228,20 @@ function formatDuration(min: number, long: boolean): string {
 
 const compactHours = (min: number): string => String(Math.round(min / 6) / 10);
 
-function parseValue(kind: "time" | "duration", raw: string): string | null {
+function parseValue(kind: ValueKind, raw: string): string | null {
 	if (!raw.trim()) return "";
+	if (kind === "text") {
+		// Commas and pipes would break the tracker's CSV / table storage, so swap in look-alikes.
+		const clean = raw.replace(/,/g, "\u201A").replace(/\|/g, "\u00A6");
+		return clean.trim().split(/\s+/).filter(Boolean).slice(0, MAX_TEXT_WORDS).join(" ").slice(0, MAX_TEXT_CHARS);
+	}
 	if (kind === "time") return normalizeTime(raw);
 	const n = parseDuration(raw);
 	if (n === null) return null;
 	return n > 0 ? String(Math.min(n, MAX_DURATION)) : "";
 }
 
-const cleanValue = (kind: "time" | "duration", raw: string): string => parseValue(kind, raw) ?? "";
+const cleanValue = (kind: ValueKind, raw: string): string => parseValue(kind, raw) ?? "";
 
 function headerFor(name: string, kind: ColumnKind): string {
 	if (HEADER_SUFFIX.test(name)) return name;
@@ -237,6 +254,8 @@ function headerFor(name: string, kind: ColumnKind): string {
 			return `${name}(time)`;
 		case "duration":
 			return `${name}(dur)`;
+		case "text":
+			return `${name}(text)`;
 		default:
 			return name;
 	}
@@ -498,6 +517,26 @@ function pieSlices(col: PieColumn): PieSlice[] {
 	if (kind === "check") {
 		const on = cells.filter((c) => levelOf(c, 1, "check") > 0).length;
 		out.push({ label: "Checked", count: on }, { label: "Unchecked", count: cells.length - on, empty: true });
+	} else if (kind === "text") {
+		const groups = new Map<string, PieSlice>();
+		let missing = 0;
+		cells.forEach((c) => {
+			const t = cleanValue("text", c);
+			if (!t) {
+				missing++;
+				return;
+			}
+			const key = t.toLowerCase();
+			const g = groups.get(key);
+			if (g) g.count++;
+			else groups.set(key, { label: t, count: 1 });
+		});
+		const sorted = Array.from(groups.values()).sort((a, b) => b.count - a.count);
+		const MAX_SLICES = 7;
+		sorted.slice(0, MAX_SLICES).forEach((s) => out.push(s));
+		const rest = sorted.slice(MAX_SLICES).reduce((a, s) => a + s.count, 0);
+		if (rest > 0) out.push({ label: "Other", count: rest });
+		out.push({ label: "Not logged", count: missing, empty: true });
 	} else if (kind === "levels") {
 		const counts = new Array<number>(max + 1).fill(0);
 		cells.forEach((c) => counts[levelOf(c, max, "levels")]++);
@@ -1212,7 +1251,9 @@ export default class DailyTrackerPlugin extends Plugin {
 		this.autoFill(ref, rows, mode);
 
 		const kinds = columns.map((c) => parseColumn(c).kind);
-		const trackOf = (k: ColumnKind): string => (isTextKind(k) ? "var(--adt-wide-size)" : "var(--adt-cell-size)");
+		const trackOf = (k: ColumnKind): string =>
+			k === "text" ? "var(--adt-longtext-size)" : isTextKind(k) ? "var(--adt-wide-size)" : "var(--adt-cell-size)";
+		const wideClass = (k: ColumnKind): string => (k === "text" ? "is-longtext" : "is-wide");
 
 		const days: DayInfo[] = [];
 		let lastMonth = "";
@@ -1279,7 +1320,7 @@ export default class DailyTrackerPlugin extends Plugin {
 		const buildHead = (colIdx: number): HTMLElement => {
 			const head = grid.createDiv({ cls: "adt-tracker-head" });
 			head.dataset.col = String(colIdx);
-			if (isTextKind(kinds[colIdx]) && !horizontal) head.addClass("is-wide");
+			if (isTextKind(kinds[colIdx]) && !horizontal) head.addClass(wideClass(kinds[colIdx]));
 			head.createSpan({ text: parseColumn(columns[colIdx]).name });
 			heads.push(head);
 			return head;
@@ -1308,15 +1349,16 @@ export default class DailyTrackerPlugin extends Plugin {
 			colIdx: number,
 			colName: string,
 			label: string,
-			kind: "time" | "duration",
+			kind: ValueKind,
 		): HTMLElement => {
 			const row = rows[rowIdx];
 			cell.setAttr("role", "button");
 			cell.addClass("is-value");
-			cell.addClass(horizontal ? "is-compact" : "is-wide");
+			cell.addClass(horizontal ? "is-compact" : wideClass(kind));
+			if (kind === "text" && horizontal) cell.addClass("is-text-compact");
 			let value = cleanValue(kind, row.cells[colIdx] ?? "");
 
-			const full = (v: string): string => (kind === "time" ? v : formatDuration(Number(v), true));
+			const full = (v: string): string => (kind === "text" ? v : kind === "time" ? v : formatDuration(Number(v), true));
 			const short = (v: string): string => {
 				if (kind === "time") return horizontal ? v.slice(0, 2) : v;
 				return horizontal ? compactHours(Number(v)) : formatDuration(Number(v), false);
@@ -1325,7 +1367,11 @@ export default class DailyTrackerPlugin extends Plugin {
 				cell.empty();
 				cell.setAttr("aria-label", value ? `${row.date} ${label}: ${full(value)}` : `${row.date} ${label}`);
 				cell.setAttr("title", value ? `${label}: ${full(value)}` : label);
-				if (value) cell.setText(short(value));
+				if (!value) return;
+				if (kind === "text") {
+					if (horizontal) setIcon(cell, "align-left");
+					else cell.createSpan({ cls: "adt-tracker-text", text: value });
+				} else cell.setText(short(value));
 			};
 			paint();
 
@@ -1356,9 +1402,9 @@ export default class DailyTrackerPlugin extends Plugin {
 				cell.empty();
 				const input = cell.createEl("input", { cls: "adt-tracker-number", type: "text" });
 				input.inputMode = kind === "time" ? "numeric" : "text";
-				input.maxLength = 9;
-				input.placeholder = kind === "time" ? "hh:mm" : "1h30";
-				input.value = !value ? "" : kind === "time" ? value : formatDuration(Number(value), false).replace(/ /g, "");
+				input.maxLength = kind === "text" ? MAX_TEXT_CHARS : 9;
+				input.placeholder = kind === "time" ? "hh:mm" : kind === "text" ? `Up to ${MAX_TEXT_WORDS} words` : "1h30";
+				input.value = !value ? "" : kind === "text" || kind === "time" ? value : formatDuration(Number(value), false).replace(/ /g, "");
 				input.setAttr("aria-label", `${row.date} ${label}`);
 				let done = false;
 				const finish = (apply: boolean): void => {
@@ -1369,6 +1415,9 @@ export default class DailyTrackerPlugin extends Plugin {
 					if (!apply) {
 						paint();
 						return;
+					}
+					if (kind === "text" && countWords(input.value) > MAX_TEXT_WORDS) {
+						new Notice(`Text is limited to ${MAX_TEXT_WORDS} words. The rest was cut off.`);
 					}
 					const next = parseValue(kind, input.value);
 					if (next === null) {
@@ -1600,19 +1649,55 @@ export default class DailyTrackerPlugin extends Plugin {
 			setTemplate(kind);
 
 			const head = createDiv({ cls: "adt-tracker-head is-new" });
-			if (isTextKind(kind) && !horizontal) head.addClass("is-wide");
+			if (isTextKind(kind) && !horizontal) head.addClass(wideClass(kind));
 			const input = head.createSpan({ cls: "adt-tracker-newname" });
 			input.contentEditable = "plaintext-only";
 			if (input.contentEditable !== "plaintext-only") input.contentEditable = "true";
 			input.dataset.placeholder = COLUMN_TYPES.find((t) => t.kind === kind)?.hint ?? "Name";
-			input.setAttr("title", "Name = checkbox \u00b7 Name(5) = shades \u00b7 Name(#) = number \u00b7 Name(time) \u00b7 Name(dur)");
+			input.setAttr("title", "Name = checkbox \u00b7 Name(5) = shades \u00b7 Name(#) = number \u00b7 Name(time) \u00b7 Name(dur) \u00b7 Name(text)");
+			// For shades, "(4)" is shown as a virtual suffix after the typed name until the first Enter,
+			// so the caret starts at the very beginning, in front of the "Name" placeholder.
+			const suffix = `(${DEFAULT_NEW_SHADES})`;
+			let suffixPending = kind === "levels";
+			if (suffixPending) {
+				input.dataset.placeholder = "Name";
+				input.dataset.suffix = suffix;
+			}
+			const materialize = (): string => {
+				const base = (input.textContent ?? "").replace(/[,|\r\n]+/g, " ").trimEnd();
+				input.textContent = `${base}${suffix}`;
+				delete input.dataset.suffix;
+				suffixPending = false;
+				return base;
+			};
+
+			const getCaret = (): number => {
+				const sel = window.getSelection();
+				if (!sel || sel.rangeCount === 0 || !input.contains(sel.anchorNode)) return (input.textContent ?? "").length;
+				const r = sel.getRangeAt(0);
+				const pre = r.cloneRange();
+				pre.selectNodeContents(input);
+				pre.setEnd(r.endContainer, r.endOffset);
+				return pre.toString().length;
+			};
+			const setCaret = (pos: number): void => {
+				const sel = window.getSelection();
+				if (!sel) return;
+				const node = input.firstChild;
+				const range = document.createRange();
+				if (node) range.setStart(node, Math.min(pos, (node.textContent ?? "").length));
+				else range.setStart(input, 0);
+				range.collapse(true);
+				sel.removeAllRanges();
+				sel.addRange(range);
+			};
 
 			let cells: HTMLElement[];
 			if (horizontal) {
 				grid.append(head);
 				cells = rows.map((_, i) => {
 					const c = createDiv({ cls: "adt-tracker-cell is-placeholder" });
-					if (isTextKind(kind) && !horizontal) c.addClass("is-wide");
+					if (isTextKind(kind) && !horizontal) c.addClass(wideClass(kind));
 					if (gapped(i)) c.addClass(gapClass);
 					grid.append(c);
 					return c;
@@ -1621,7 +1706,7 @@ export default class DailyTrackerPlugin extends Plugin {
 				headAnchor?.after(head);
 				cells = rowAnchors.map((anchor, i) => {
 					const c = createDiv({ cls: "adt-tracker-cell is-placeholder" });
-					if (isTextKind(kind) && !horizontal) c.addClass("is-wide");
+					if (isTextKind(kind) && !horizontal) c.addClass(wideClass(kind));
 					if (gapRows.has(i)) c.addClass("adt-gap-top");
 					anchor.after(c);
 					return c;
@@ -1630,13 +1715,30 @@ export default class DailyTrackerPlugin extends Plugin {
 			pending = { head, cells };
 
 			let done = false;
-			const commit = (): void => {
+			const commit = (keepOpen = false): void => {
 				if (done) return;
 				done = true;
-				const name = (input.textContent ?? "").replace(/[,|\r\n]+/g, " ").trim();
+				const typed = (input.textContent ?? "").replace(/[,|\r\n]+/g, " ").trim();
+				const name = suffixPending && typed ? `${typed}${suffix}` : typed;
 				if (!name) {
 					cancelNewColumn();
 					return;
+				}
+				if (kind === "levels") {
+					if (!name.replace(/\(\d*\)?\s*$/, "").trim()) {
+						cancelNewColumn();
+						return;
+					}
+					const m = /^(.+?)\s*\((\d+)\)$/.exec(name);
+					const n = m ? Number(m[2]) : 0;
+					if (!m || n < 2 || n > MAX_LEVELS) {
+						new Notice(`Please type a digit inside ( ) for the number of shades (2\u2013${MAX_LEVELS}), e.g. Mood(5).`);
+						if (keepOpen) {
+							done = false;
+							input.focus();
+						} else cancelNewColumn();
+						return;
+					}
 				}
 				void this.editBlock(ref, (m) => {
 					m.columns.push(headerFor(name, kind));
@@ -1651,16 +1753,50 @@ export default class DailyTrackerPlugin extends Plugin {
 			};
 
 			input.addEventListener("keydown", (e: KeyboardEvent) => {
+				if (suffixPending && (e.key === "(" || e.key === ")" || e.key === "Enter")) {
+					e.preventDefault();
+					if (!(input.textContent ?? "").trim() || e.key === ")") return;
+					const base = materialize();
+					setCaret(base.length + 1 + (e.key === "(" ? 0 : String(DEFAULT_NEW_SHADES).length));
+					return;
+				}
+				if (kind === "levels" && (e.key === "(" || e.key === ")")) {
+					// Typing a bracket that is already right after the caret just steps over it.
+					const t = input.textContent ?? "";
+					const c = getCaret();
+					if (t.charAt(c) === e.key) {
+						e.preventDefault();
+						setCaret(c + 1);
+					}
+					return;
+				}
 				if (e.key === "Enter") {
 					e.preventDefault();
-					commit();
+					if (kind === "levels") {
+						const t = (input.textContent ?? "").replace(/[,|\r\n]+/g, " ");
+						const m = /\((\d*)\)\s*$/.exec(t);
+						const base = m ? t.slice(0, m.index) : t.trimEnd();
+						if (!base.trim()) return;
+						if (!m) {
+							input.textContent = `${base}(${DEFAULT_NEW_SHADES})`;
+							setCaret(base.length + 1 + String(DEFAULT_NEW_SHADES).length);
+							return;
+						}
+						const c = getCaret();
+						const inside = c >= m.index + 1 && c <= m.index + 1 + m[1].length;
+						if (!inside) {
+							setCaret(m.index + 1 + m[1].length);
+							return;
+						}
+					}
+					commit(true);
 				} else if (e.key === "Escape") {
 					e.preventDefault();
 					done = true;
 					cancelNewColumn();
 				}
 			});
-			input.addEventListener("blur", commit);
+			input.addEventListener("blur", () => commit(false));
 			window.setTimeout(() => input.focus(), 50);
 		};
 
@@ -1787,6 +1923,24 @@ export default class DailyTrackerPlugin extends Plugin {
 		const useSub = canSubmenu();
 
 		if (mode !== "locked") {
+			if (useSub) {
+				menu.addItem((item) => {
+					item.setTitle(`Add ${noun}`).setIcon("plus");
+					const sub = (item as SubmenuItem).setSubmenu();
+					COLUMN_TYPES.forEach((t) =>
+						sub.addItem((i) => i.setTitle(t.label).setIcon(t.icon).onClick(() => beginNewColumn(t.kind))),
+					);
+				});
+			} else {
+				COLUMN_TYPES.forEach((t) =>
+					menu.addItem((item) =>
+						item
+							.setTitle(`Add ${t.label.toLowerCase()} ${noun}`)
+							.setIcon(t.icon)
+							.onClick(() => beginNewColumn(t.kind)),
+					),
+				);
+			}
 			menu.addItem((item) =>
 				item
 					.setTitle("Add next day")
@@ -1821,24 +1975,6 @@ export default class DailyTrackerPlugin extends Plugin {
 						}),
 					),
 			);
-			if (useSub) {
-				menu.addItem((item) => {
-					item.setTitle(`Add ${noun}`).setIcon("plus");
-					const sub = (item as SubmenuItem).setSubmenu();
-					COLUMN_TYPES.forEach((t) =>
-						sub.addItem((i) => i.setTitle(t.label).setIcon(t.icon).onClick(() => beginNewColumn(t.kind))),
-					);
-				});
-			} else {
-				COLUMN_TYPES.forEach((t) =>
-					menu.addItem((item) =>
-						item
-							.setTitle(`Add ${t.label.toLowerCase()} ${noun}`)
-							.setIcon(t.icon)
-							.onClick(() => beginNewColumn(t.kind)),
-					),
-				);
-			}
 			menu.addSeparator();
 
 			(

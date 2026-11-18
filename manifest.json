@@ -1,7 +1,7 @@
 {
   "id": "advanced-daily-tracker",
   "name": "Advanced Daily Tracker",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "minAppVersion": "1.7.2",
   "description": "A daily habit tracker with checkboxes, shades, numbers, times and durations. Create graphs, pie charts and heatmaps from any column with one right-click. Everything stays as plain text in your notes.",
   "author": "kgniewek",

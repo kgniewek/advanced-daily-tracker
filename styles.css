@@ -60,6 +60,7 @@
 
 .adt-tracker {
 	--adt-wide-size: calc(var(--adt-cell-size, 22px) * 2.3);
+	--adt-longtext-size: calc(var(--adt-cell-size, 22px) * 6);
 	--adt-month-gap: calc((var(--adt-cell-size, 22px) + var(--adt-vgap, 8px)) * var(--adt-gap-scale, 1));
 	display: inline-grid;
 	gap: var(--adt-vgap, 8px) var(--adt-hgap, 16px);
@@ -228,6 +229,11 @@ body.adt-today-accent .adt-tracker-date.is-today {
 	cursor: text;
 	min-height: 2.5em;
 	caret-color: var(--text-accent);
+}
+
+.adt-tracker-newname[data-suffix]::after {
+	content: attr(data-suffix);
+	color: var(--text-normal);
 }
 
 .adt-tracker-newname:empty::before {
@@ -440,6 +446,39 @@ body.adt-today-accent .adt-tracker-date.is-today {
 
 .adt-tracker-head.is-wide {
 	width: var(--adt-wide-size);
+}
+
+.adt-tracker-head.is-longtext {
+	width: var(--adt-longtext-size);
+}
+
+.adt-tracker-cell.is-longtext {
+	width: var(--adt-longtext-size);
+	justify-content: flex-start;
+	overflow: hidden;
+	padding: 0 8px;
+	font-weight: var(--font-normal);
+	font-size: var(--adt-text-size, 13px);
+	line-height: 1;
+}
+
+.adt-tracker-cell.is-longtext .adt-tracker-text {
+	display: block;
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.adt-tracker-cell.is-longtext .adt-tracker-number {
+	padding: 0;
+	text-align: left;
+	font-weight: var(--font-normal);
+}
+
+.adt-tracker-cell.is-text-compact .adt-tracker-number {
+	width: 16em;
+	text-align: left;
 }
 
 .adt-tracker-cell.is-wide {
