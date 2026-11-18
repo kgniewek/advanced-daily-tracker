@@ -1,24 +1,26 @@
 ### Daily trackers that live in your notes
 
-Click a cell to check it, shade it, or type a number, a time or a duration. Everything is saved in the note as plain text.
+Check, shade or type in a cell. Everything is saved as plain text in your note.
 
 ![A daily tracker with checkbox, shade, number, time and duration columns](images/advanced-daily-tracker.png)
 
 ### Everything is one right-click away
 
-Add days and columns, switch between code and table form, set the lock mode, rename or reorder columns, and create a chart for any column.
+Add days and columns, rename or reorder them, and create charts for any column.
 
 ![The right-click menu with its column and chart submenus](images/right-click-menu.png)
 
 ### Graphs, pie charts and heatmaps
 
-Create a graph, pie chart or heatmap for any column, or write a small code block by hand. Charts update as soon as you change the tracker.
+Create a graph, pie chart or heatmap for any column. Charts update as you edit.
 
 ![A pie chart, a line graph and two heatmaps drawn from a tracker](images/graphs-and-charts.png)
 
 ### Extensive options
 
-![Options](images/options.png)
+Adjust layout, sizes, date format, highlights and more.
+
+![The settings page](images/settings.png)
 
 Highlights
 
