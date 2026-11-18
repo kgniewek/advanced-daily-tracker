@@ -6,7 +6,7 @@ Click a cell to check it, shade it, or type a number, a time or a duration. Ever
 
 ### Everything is one right-click away
 
-Add days and columns, switch between code and table form, set the lock mode, rename or reorder columns, and create a chart for the column you clicked.
+Add days and columns, switch between code and table form, set the lock mode, rename or reorder columns, and create a chart for any column.
 
 ![The right-click menu with its column and chart submenus](images/right-click-menu.png)
 
@@ -15,6 +15,10 @@ Add days and columns, switch between code and table form, set the lock mode, ren
 Create a graph, pie chart or heatmap for any column, or write a small code block by hand. Charts update as soon as you change the tracker.
 
 ![A pie chart, a line graph and two heatmaps drawn from a tracker](images/graphs-and-charts.png)
+
+### Extensive options
+
+![Options](images/options.png)
 
 Highlights
 
