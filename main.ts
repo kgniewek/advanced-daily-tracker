@@ -12,6 +12,7 @@ import {
 	PluginSettingTab,
 	Setting,
 	TFile,
+	addIcon,
 	moment,
 	setIcon,
 } from "obsidian";
@@ -85,6 +86,11 @@ const DEFAULT_SETTINGS: DailyTrackerSettings = {
 const HIGHLIGHT_STYLES: HighlightStyle[] = ["bold", "italic", "underline", "accent"];
 
 const ROMAN_MONTHS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+
+const RIBBON_ICON = "adt-tracker-settings";
+// Calendar-check glyph with a small cog badge in the bottom-right corner. The calendar is drawn
+// slightly smaller and a mask cuts a gap around the cog so both shapes stay readable at ribbon size.
+const RIBBON_ICON_SVG = `<g transform="scale(4.1667)" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><mask id="adt-cog-gap" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24"><rect width="24" height="24" fill="white"/><circle cx="18" cy="18" r="7" fill="black" stroke="none"/></mask><g mask="url(#adt-cog-gap)"><g transform="scale(0.82)" stroke-width="2.4"><path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/><path d="m9 16 2 2 4-4"/></g></g><g transform="translate(12 12) scale(0.5)" stroke-width="3"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></g></g>`;
 
 const MODES: { id: TrackerMode; label: string; icon: string }[] = [
 	{ id: "unlocked", label: "Unlocked", icon: "unlock" },
@@ -645,6 +651,7 @@ export default class DailyTrackerPlugin extends Plugin {
 	async onload(): Promise<void> {
 		await this.loadSettings();
 		this.applyAppearance();
+		addIcon(RIBBON_ICON, RIBBON_ICON_SVG);
 		this.addSettingTab(new DailyTrackerSettingTab(this.app, this));
 
 		this.addCommand({
@@ -676,6 +683,7 @@ export default class DailyTrackerPlugin extends Plugin {
 			}
 			this.insertSnippet(editor, ["```tracker", "unlocked,Habit", `${todayIso()},`, "```"], 3);
 		});
+		this.addRibbonIcon(RIBBON_ICON, "Advanced Daily Tracker settings", () => this.openSettings());
 
 		this.registerMarkdownCodeBlockProcessor("tracker", (source, el, ctx) => {
 			if (!this.settings.snippetTrackers) {
@@ -708,6 +716,13 @@ export default class DailyTrackerPlugin extends Plugin {
 		this.registerMarkdownCodeBlockProcessor("tracker-graph", (source, el, ctx) => this.renderGraph(source, el, ctx, "graph"));
 		this.registerMarkdownCodeBlockProcessor("tracker-pie", (source, el, ctx) => this.renderGraph(source, el, ctx, "pie"));
 		this.registerMarkdownCodeBlockProcessor("tracker-heatmap", (source, el, ctx) => this.renderGraph(source, el, ctx, "heatmap"));
+	}
+
+	private openSettings(): void {
+		const setting = (this.app as unknown as { setting?: { open(): void; openTabById(id: string): void } }).setting;
+		if (!setting) return;
+		setting.open();
+		setting.openTabById(this.manifest.id);
 	}
 
 	onunload(): void {
@@ -2086,6 +2101,9 @@ export default class DailyTrackerPlugin extends Plugin {
 			});
 		}
 
+		menu.addSeparator();
+		menu.addItem((item) => item.setTitle("Settings").setIcon("settings").onClick(() => this.openSettings()));
+
 		menu.showAtMouseEvent(evt);
 
 		const dom = (menu as Menu & { dom?: HTMLElement }).dom;
@@ -2415,6 +2433,18 @@ class DailyTrackerSettingTab extends PluginSettingTab {
 					window.open("obsidian://show-plugin?id=advanced-web-link-features");
 				});
 				setIcon(button.buttonEl.createSpan({ cls: "adt-link-icon" }), "puzzle");
+			});
+
+		divider(support);
+
+		new Setting(support)
+			.setName("Media Cover Gallery")
+			.setDesc("Turn plain text lists of movies, books & albums into cover galleries.")
+			.addButton((button) => {
+				button.setButtonText("View plugin").onClick(() => {
+					window.open("obsidian://show-plugin?id=media-cover-gallery");
+				});
+				setIcon(button.buttonEl.createSpan({ cls: "ytg-link-icon" }), "puzzle");
 			});
 	}
 }

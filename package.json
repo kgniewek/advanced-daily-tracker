@@ -1,6 +1,6 @@
 {
   "name": "advanced-daily-tracker",
-  "version": "1.0.3",
+  "version": "1.1.0",
   "description": "A daily habit tracker for Obsidian with graphs, pie charts and heatmaps.",
   "main": "main.js",
   "scripts": {
